@@ -1,2 +1,5 @@
 *.sync.*
 .DS_Store
+.ipynb_checkpoints/
+runs/
+syncs/
