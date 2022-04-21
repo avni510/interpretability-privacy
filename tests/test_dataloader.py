@@ -1,10 +1,10 @@
 import unittest
-from src import dataloader as dataloader
+import src.dataloader as dataloader
 import os
 import pandas as pd
 import numpy as np
 from sklearn import preprocessing
-from src import utils as utils
+import src.utils as utils
 
 class TestDataloaderMethods(unittest.TestCase):
     def test_process_data_separates_data(self):
@@ -50,5 +50,5 @@ class TestDataloaderMethods(unittest.TestCase):
         self.assertEqual(len(next(iter(d1_loader))[0]), 8)
         self.assertEqual(len(next(iter(d2_loader))[0]), 8)
 
-
-
+if __name__ == '__main__':
+    unittest.main()

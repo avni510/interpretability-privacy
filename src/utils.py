@@ -19,7 +19,7 @@ def subsample(X, y, subsample_size, num_sets, is_disjoint=True):
 
     return list(zip(X_sets, y_sets))
 
-def plot_losses(losses):
+def plot_losses(losses, plot_dir):
     epochs = np.arange(len(losses[0]))
     for idx, model_losses in enumerate(losses):
         plt.plot(epochs, model_losses, label=f'Model {str(idx + 1)}')
@@ -31,9 +31,10 @@ def plot_losses(losses):
     fig = plt.gcf()
     fig.set_size_inches(8.25, 4.5)
     plt.legend(loc="upper right")
+    plt.savefig(plot_dir + '/losses.png')
     plt.show()
 
-def plot_accuracies(accuracies):
+def plot_accuracies(accuracies, plot_dir):
     epochs = np.arange(len(accuracies[0]))
     for idx, model_acc in enumerate(accuracies):
         plt.plot(epochs, model_acc, label=f'Model {str(idx + 1)}')
@@ -45,4 +46,5 @@ def plot_accuracies(accuracies):
     fig = plt.gcf()
     fig.set_size_inches(8.25, 4.5)
     plt.legend(loc="lower right")
+    plt.savefig(plot_dir + '/accuracies.png')
     plt.show()

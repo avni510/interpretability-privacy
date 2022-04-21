@@ -1,5 +1,6 @@
 import pandas as pd
 from torch.utils.data import DataLoader, TensorDataset
+import torch
 import numpy as np
 import torch
 import utils as utils
@@ -35,6 +36,9 @@ def normalize(train, test):
     train_X, train_y = train
     test_X, test_y = test
 
+    train_X = np.array([sample.numpy() for sample in train_X])
+    test_X = np.array([sample.numpy() for sample in test_X])
+
     scaler = preprocessing.StandardScaler().fit(train_X)
     train_X_scaled = scaler.transform(train_X)
     test_X_scaled = scaler.transform(test_X)
@@ -52,8 +56,8 @@ def get_loaders(model_sets, batch_size):
 
     return list(map(
         lambda d: (
-            DataLoader(dataset=d[0], batch_size=batch_size),
-            DataLoader(dataset=d[1], batch_size=batch_size)
+            DataLoader(dataset=d[0], batch_size=batch_size, shuffle=True),
+            DataLoader(dataset=d[1], batch_size=batch_size, shuffle=True)
             ),
         datasets
         ))

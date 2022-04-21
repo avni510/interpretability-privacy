@@ -1,7 +1,6 @@
 import torch.nn as nn
 import torch
 
-# %%
 class AdultNetwork(nn.Module):
     def __init__(self, in_features, layer_sizes):
         super().__init__()
@@ -23,5 +22,3 @@ class AdultNetwork(nn.Module):
 
     def forward(self, x):
         return self.net(x)
-
-

@@ -3,3 +3,5 @@
 .ipynb_checkpoints/
 runs/
 syncs/
+src/__pycache__/*
+tests/__pycache__/*
