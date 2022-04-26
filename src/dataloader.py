@@ -32,12 +32,18 @@ def get_data_columns():
     return updated_df.columns
 
 
+def cast_to_numpy(sample):
+    if not isinstance(sample, np.ndarray):
+        return sample.numpy()
+    else:
+        return sample
+
 def normalize(train, test):
     train_X, train_y = train
     test_X, test_y = test
 
-    train_X = np.array([sample.numpy() for sample in train_X])
-    test_X = np.array([sample.numpy() for sample in test_X])
+    train_X = np.array([cast_to_numpy(sample) for sample in train_X])
+    test_X = np.array([cast_to_numpy(sample) for sample in test_X])
 
     scaler = preprocessing.StandardScaler().fit(train_X)
     train_X_scaled = scaler.transform(train_X)

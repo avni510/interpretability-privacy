@@ -4,8 +4,9 @@ import dataloader as dataloader
 import os
 from attack_network import AttackNetwork
 import train_network as train_network
+import utils as utils
 
-ATTACK_BATCH_SIZE = 8
+ATTACK_BATCH_SIZE = 16
 ROOT_DIR = os.path.dirname(os.getcwd())
 EXPERIMENT_DIR = ROOT_DIR + "/experiments/adult"
 
@@ -165,14 +166,6 @@ def create_dataloaders_by_class(attack_train_dataset, attack_test_dataset):
 
     return convert_to_dataloaders(class_by_train_test)
 
-def load_model_infos(iter_num):
-    model_infos = []
-    for j in range(0, 4):
-        path = EXPERIMENT_DIR + '/iter_' + str(iter_num) + '/model_' + str(j) + '.npy'
-        model_info = np.load(path, allow_pickle=True)
-        model_infos.append(model_info.item())
-    return model_infos
-
 def attack_model_training(class_by_dataloaders, in_features):
     attack_train_losses = {}
     attack_train_accuracies = {}
@@ -184,8 +177,9 @@ def attack_model_training(class_by_dataloaders, in_features):
                 model,
                 train_loader,
                 len(train_loader.dataset),
-                log_tensorboard=True
+                log_tensorboard=False
                 )
+
         attack_train_losses[key] = train_losses
         attack_train_accuracies[key] = train_accuracies
         attack_model_params[key] = model.state_dict()
@@ -206,16 +200,16 @@ def attack_model_testing(target_model, idx, class_by_dataloaders, in_features):
                 test_loader,
                 len(test_loader.dataset),
                 )
+
         attack_test_loss[key] = test_loss
         attack_test_accuracy[key] = test_accuracy
 
     return attack_test_loss, attack_test_accuracy
 
 
-def run(iter_val, in_features, save_model_fn, model_infos=[]):
+def run(iter_val, in_features, save_model_fn, model_infos = []):
     if not model_infos:
-        model_infos = load_model_infos(iter_val)
-
+        model_infos = utils.load_model_infos(EXPERIMENT_DIR, '/iter_0', 4)
     for idx, info in enumerate(model_infos):
         target_model = info
         surrogate_models = get_surrogate_models(idx, model_infos)

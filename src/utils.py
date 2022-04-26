@@ -1,6 +1,9 @@
 import numpy as np
-import matplotlib.pyplot as plt
 import pandas as pd
+import torch
+import model_info as model_info
+import os
+from zipfile import ZipFile
 
 def subsample(X, y, subsample_size, num_sets, is_disjoint=True):
     total_sample = subsample_size * num_sets
@@ -19,32 +22,53 @@ def subsample(X, y, subsample_size, num_sets, is_disjoint=True):
 
     return list(zip(X_sets, y_sets))
 
-def plot_losses(losses, plot_dir):
-    epochs = np.arange(len(losses[0]))
-    for idx, model_losses in enumerate(losses):
-        plt.plot(epochs, model_losses, label=f'Model {str(idx + 1)}')
-    plt.xlabel('Number of Epochs', fontsize=14)
-    plt.ylabel('Cross Entropy Loss', fontsize=14)
-    plt.title('Plot of Loss vs Epochs', fontsize=14)
-    plt.xticks(fontsize=14)
-    plt.yticks(fontsize=14)
-    fig = plt.gcf()
-    fig.set_size_inches(8.25, 4.5)
-    plt.legend(loc="upper right")
-    plt.savefig(plot_dir + '/losses.png')
-    plt.show()
+def save_model_infos(experiment_dir, model_infos, new_dir_name):
+    for info in model_infos:
+        model_name = info['model_name']
+        with ZipFile(experiment_dir + new_dir_name + '/' + model_name + ".zip", 'w') as zipObj:
+            data_keys = list(info.keys())[1:]
+            for key in data_keys:
+                value = info[key]
+                file_name = model_name + "_" + key + ".pt"
+                path = experiment_dir + new_dir_name + '/' + file_name
+                if torch.is_tensor(value):
+                    value = value.to('cpu')
+                    torch.save(value, path)
+                    zipObj.write(path, arcname=file_name)
+                    os.remove(path)
+                else:
+                    if value:
+                        torch.save(value, path)
+                        zipObj.write(path, arcname=file_name)
+                        os.remove(path)
+        zipObj.close()
 
-def plot_accuracies(accuracies, plot_dir):
-    epochs = np.arange(len(accuracies[0]))
-    for idx, model_acc in enumerate(accuracies):
-        plt.plot(epochs, model_acc, label=f'Model {str(idx + 1)}')
-    plt.xlabel('Number of Epochs', fontsize=14)
-    plt.ylabel('Accuracy', fontsize=14)
-    plt.title('Plot of Accuracy vs Epochs', fontsize=14)
-    plt.xticks(fontsize=14)
-    plt.yticks(fontsize=14)
-    fig = plt.gcf()
-    fig.set_size_inches(8.25, 4.5)
-    plt.legend(loc="lower right")
-    plt.savefig(plot_dir + '/accuracies.png')
-    plt.show()
+def load_files(dir_name, info, i):
+    data_keys = list(info.keys())[1:]
+    for key in data_keys:
+        path = dir_name + '/model_' + str(i) + "_" + key + '.pt'
+        if os.path.exists(path):
+            value = torch.load(path, map_location=torch.device('cpu'))
+            info[key] = value
+            os.remove(path)
+    return info
+
+def load_model_infos(experiment_dir, dir_name, num_models):
+    model_infos = []
+    for i in range(0, num_models):
+        info = model_info.init_model_info()
+        info['model_name'] = "model_" + str(i)
+
+        zipfile_path = experiment_dir + dir_name + '/model_' + str(i) + '.zip'
+        if os.path.exists(zipfile_path):
+            with ZipFile(zipfile_path, 'r') as zipObj:
+                zipObj.extractall(experiment_dir + dir_name)
+
+        info = load_files(experiment_dir + dir_name, info, i)
+        model_infos.append(info)
+
+    return model_infos
+
+def create_new_dir(experiment_dir, name):
+    if not os.path.exists(experiment_dir + name):
+        os.mkdir(experiment_dir + name)

@@ -17,7 +17,7 @@ LR_DECAY= 1e-7
 
 ATTACK_LR = .001
 ATTACK_LR_DECAY= 1e-7
-ATTACK_EPOCHS = 1
+ATTACK_EPOCHS = 10
 
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 EXPERIMENT_DIR = ROOT_DIR + '/experiments/adult/'
@@ -47,19 +47,19 @@ def train_epoch(
         inputs = inputs.type(torch.FloatTensor).to(DEVICE)
         labels = labels.type(torch.FloatTensor).to(DEVICE)
 
-        writer.add_graph(model, inputs)
-
         outputs = model(inputs)
 
         outputs = outputs.type(torch.FloatTensor).to(DEVICE)
         labels = labels.type(torch.LongTensor).to(DEVICE)
 
         loss = criterion(outputs, labels)
-        losses.append(loss.item())
-        total_correct += get_num_correct(outputs, labels)
+        loss_val = loss.detach().item()
 
-        if log_tensorboard and iter % 100 == 0:
-            writer.add_scalar("Batch Loss", loss.item(), iter)
+        losses.append(loss_val)
+        total_correct += get_num_correct(outputs.detach(), labels.detach())
+
+        # if log_tensorboard and iter % 250 == 0:
+        #     writer.add_scalar("Batch Loss", loss_val, iter)
 
         #backprop
         loss.backward()
@@ -67,8 +67,12 @@ def train_epoch(
         # update weights
         optimizer.step()
 
-        if iter % 150 == 0:
-            print("epoch: {}, iter: {}, loss: {}".format(epoch, iter, loss.item()))
+        del outputs
+        del labels
+        del inputs
+
+        if iter % 250 == 0:
+            print("epoch: {}, iter: {}, loss: {}".format(epoch, iter, loss_val))
     return losses, total_correct
 
 def train(
@@ -133,11 +137,11 @@ def train_attack_model(
         average_loss = np.mean(np.array(losses))
         accuracy = total_correct/dataset_length
 
-        if log_tensorboard:
-            writer.add_scalar("Attack Loss/train", average_loss, epoch)
-            writer.add_scalar("Attack Correct", total_correct, epoch)
-            writer.add_scalar("Attack Accuracy", accuracy, epoch)
-
+        # if log_tensorboard:
+        #     writer.add_scalar("Attack Loss/train", average_loss, epoch)
+        #     writer.add_scalar("Attack Correct", total_correct, epoch)
+        #     writer.add_scalar("Attack Accuracy", accuracy, epoch)
+        #
         train_losses.append(average_loss)
         train_accuracies.append(accuracy)
 
@@ -165,7 +169,7 @@ def test(model, model_params, idx, test_loader, dataset_length):
             labels = labels.type(torch.LongTensor).to(DEVICE)
 
             loss = criterion(outputs, labels)
-            test_losses.append(loss.item())
+            test_losses.append(loss.detach().item())
             total_correct += get_num_correct(outputs, labels)
 
         test_accuracy = total_correct/dataset_length

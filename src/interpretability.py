@@ -16,7 +16,4 @@ def smooth_grad(model, input_val, target_class):
             nt_samples=5,
             target=target_class
             )
-    return (input_val, attribution, target_class)
-
-
-
+    return (input_val.detach(), attribution.detach(), target_class)

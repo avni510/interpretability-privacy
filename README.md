@@ -9,4 +9,11 @@ Numpy 1.22.3 \
 Pandas
 
 ## Instructions
-In order to train the model for the Adult UCI dataset please run the notebook main.ipynb
+To train the baseline models and attack models for the Adult UCI dataset
+```
+$ cd src
+```
+
+```
+$ python main.py
+```
