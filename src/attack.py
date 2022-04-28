@@ -111,11 +111,11 @@ def group_train_test(data_by_class_train, data_by_class_test):
         class_by_train_test[key] = (train, test)
     return class_by_train_test
 
-def convert_to_dataloaders(class_by_train_test):
+def convert_to_dataloaders(class_by_train_test, batch_size):
     class_by_dataloaders = {}
     for key, data in class_by_train_test.items():
         train, test = data
-        train_loader, test_loader = dataloader.get_loaders([(train, test)], ATTACK_BATCH_SIZE)[0]
+        train_loader, test_loader = dataloader.get_loaders([(train, test)], batch_size)[0]
         class_by_dataloaders[key] = (train_loader, test_loader)
     return class_by_dataloaders
 
@@ -149,7 +149,7 @@ def assert_ratio_in_members(data_by_class):
     assert values_in/len(y_1) >= .45 and values_in/len(y_1) <= .55
 
 
-def create_dataloaders_by_class(attack_train_dataset, attack_test_dataset):
+def create_dataloaders_by_class(attack_train_dataset, attack_test_dataset, batch_size):
     attack_train_dataset = sorted(attack_train_dataset, key = lambda attr_map: attr_map['class'])
     attack_test_dataset = sorted(attack_test_dataset, key = lambda attr_map: attr_map['class'])
 
@@ -164,9 +164,9 @@ def create_dataloaders_by_class(attack_train_dataset, attack_test_dataset):
     class_by_train_test = group_train_test(data_by_class_train, data_by_class_test)
     class_by_train_test = normalize_data(class_by_train_test)
 
-    return convert_to_dataloaders(class_by_train_test)
+    return convert_to_dataloaders(class_by_train_test, batch_size)
 
-def attack_model_training(class_by_dataloaders, in_features):
+def attack_model_training(class_by_dataloaders, in_features, attack_hyperparams):
     attack_train_losses = {}
     attack_train_accuracies = {}
     attack_model_params = {}
@@ -177,6 +177,7 @@ def attack_model_training(class_by_dataloaders, in_features):
                 model,
                 train_loader,
                 len(train_loader.dataset),
+                attack_hyperparams,
                 log_tensorboard=False
                 )
 
@@ -197,8 +198,7 @@ def attack_model_testing(target_model, idx, class_by_dataloaders, in_features):
                 model,
                 model_params,
                 idx,
-                test_loader,
-                len(test_loader.dataset),
+                test_loader
                 )
 
         attack_test_loss[key] = test_loss
@@ -207,9 +207,7 @@ def attack_model_testing(target_model, idx, class_by_dataloaders, in_features):
     return attack_test_loss, attack_test_accuracy
 
 
-def run(iter_val, in_features, save_model_fn, model_infos = []):
-    if not model_infos:
-        model_infos = utils.load_model_infos(EXPERIMENT_DIR, '/iter_0', 4)
+def run(iter_val, in_features, save_model_fn, attack_hyperparams, model_infos):
     for idx, info in enumerate(model_infos):
         target_model = info
         surrogate_models = get_surrogate_models(idx, model_infos)
@@ -219,12 +217,14 @@ def run(iter_val, in_features, save_model_fn, model_infos = []):
 
         class_by_dataloaders = create_dataloaders_by_class(
                 attack_train_dataset,
-                attack_test_dataset
+                attack_test_dataset,
+                attack_hyperparams['batch_size']
                 )
 
         attack_model_params, attack_train_losses, attack_train_accuracies = attack_model_training(
                 class_by_dataloaders,
-                in_features
+                in_features,
+                attack_hyperparams
                 )
 
         target_model['attack_train_losses'] = attack_train_losses

@@ -8,15 +8,6 @@ import model_info
 import utils as utils
 import attack as attack
 
-SUBSAMPLE_SIZE = 2500
-SETS = 4
-BATCH_SIZE = 8
-NUM_ITER = 1
-
-ROOT_DIR = os.path.dirname(os.getcwd())
-EXPERIMENT_DIR = ROOT_DIR + "/experiments/adult"
-MODEL_PATH = ROOT_DIR + "/saved_models"
-
 def create_models(in_features, num=4):
     layer_sizes = [20, 20, 20, 20, 2]
     models = []
@@ -25,7 +16,7 @@ def create_models(in_features, num=4):
         models.append(model)
     return models
 
-def train_models(models, dataloaders, model_infos, log_tensorboard=False):
+def train_models(models, dataloaders, model_infos, model_hyperparams, log_tensorboard=False):
     for idx, model in enumerate(models):
         train_loader = dataloaders[idx][0]
         info = model_infos[idx]
@@ -33,7 +24,7 @@ def train_models(models, dataloaders, model_infos, log_tensorboard=False):
                 model,
                 train_loader,
                 idx,
-                SUBSAMPLE_SIZE,
+                model_hyperparams,
                 log_tensorboard
                 )
         info['training_losses'] = train_losses
@@ -51,8 +42,7 @@ def test_models(models, dataloaders, model_infos):
                 model,
                 info['model_params'],
                 idx,
-                test_loader,
-                SUBSAMPLE_SIZE
+                test_loader
                 )
         info['test_loss'] = test_loss
         info['test_accuracy'] = test_accuracy
@@ -60,9 +50,6 @@ def test_models(models, dataloaders, model_infos):
     return model_infos
 
 def get_model_attributions(models, dataloaders, model_infos):
-    if not model_infos:
-        model_infos = utils.load_model_infos(EXPERIMENT_DIR, '/iter_0', 4)
-
     model_attributions = []
 
     for idx, (model, dataloader) in enumerate(list(zip(models, dataloaders))):
@@ -105,61 +92,68 @@ def init_model_infos(sets):
         model_infos.append(m_info)
     return model_infos
 
-def split_data(X, Y):
-    model_infos = init_model_infos(SETS)
-    subsets = utils.subsample(X, Y, SUBSAMPLE_SIZE, SETS)
+def split_data(X, Y, subsample_size, sets):
+    model_infos = init_model_infos(sets)
+    subsets = utils.subsample(X, Y, subsample_size, sets)
     model_infos = populate_train_test_sets(subsets, model_infos)
     return model_infos
 
-def execute_training(model_infos, models):
+def execute_training(model_infos, models, model_hyperparams):
     models_train_test = [(info['train_set'], info['test_set']) for info in model_infos]
-    dataloaders = dataloader.get_loaders(models_train_test, BATCH_SIZE)
+    dataloaders = dataloader.get_loaders(models_train_test, model_hyperparams['batch_size'])
 
     model_infos = train_models(
             models,
             dataloaders,
             model_infos,
+            model_hyperparams,
             log_tensorboard=False
             )
 
     return model_infos, dataloaders
 
-def execute(retrain=False):
-    if retrain:
-        X, Y = dataloader.process_data()
-        for i in range(0, NUM_ITER):
-            new_dir_name = '/iter_' + str(i)
-            utils.create_new_dir(EXPERIMENT_DIR, new_dir_name)
+def execute(
+        subsample_size,
+        sets,
+        experiment_dir,
+        num_iter,
+        base_hyperparams,
+        attack_hyperparams
+        ):
+    X, Y = dataloader.process_data()
+    for i in range(0, num_iter):
+        new_dir_name = '/iter_' + str(i)
+        utils.create_new_dir(experiment_dir, new_dir_name)
 
-            model_infos = split_data(X, Y)
-            utils.save_model_infos(EXPERIMENT_DIR, model_infos, new_dir_name)
+        model_infos = split_data(X, Y, subsample_size, sets)
+        utils.save_model_infos(experiment_dir, model_infos, new_dir_name)
 
-            in_features = X.shape[1]
-            models = create_models(in_features)
+        in_features = X.shape[1]
+        models = create_models(in_features)
 
-            print("--------------------------------")
-            print("STARTING TRAINING")
+        print("--------------------------------")
+        print("STARTING TRAINING")
 
-            model_infos, dataloaders = execute_training(model_infos, models)
-            utils.save_model_infos(EXPERIMENT_DIR, model_infos, new_dir_name)
+        model_infos, dataloaders = execute_training(model_infos, models, base_hyperparams)
+        utils.save_model_infos(experiment_dir, model_infos, new_dir_name)
 
-            print("--------------------------------")
-            print("STARTING TESTING")
+        print("--------------------------------")
+        print("STARTING TESTING")
 
-            model_infos = test_models(models, dataloaders, model_infos)
-            utils.save_model_infos(EXPERIMENT_DIR, model_infos, new_dir_name)
+        model_infos = test_models(models, dataloaders, model_infos)
+        utils.save_model_infos(experiment_dir, model_infos, new_dir_name)
 
-            print("--------------------------------")
-            print("STARTING ATTRIBUTIONS")
+        print("--------------------------------")
+        print("STARTING ATTRIBUTIONS")
 
-            model_infos = get_model_attributions(models, dataloaders, [])
-            utils.save_model_infos(EXPERIMENT_DIR, model_infos, new_dir_name)
+        model_infos = get_model_attributions(models, dataloaders, model_infos)
+        utils.save_model_infos(experiment_dir, model_infos, new_dir_name)
 
-            print("--------------------------------")
-            print("STARTING ATTACK")
+        print("--------------------------------")
+        print("STARTING ATTACK")
 
-            save_model_fn = lambda model_infos: utils.save_model_infos(EXPERIMENT_DIR, model_infos, new_dir_name)
-            model_infos = attack.run(i, in_features, save_model_fn, [])
+        save_model_fn = lambda model_infos: utils.save_model_infos(experiment_dir, model_infos, new_dir_name)
+        model_infos = attack.run(i, in_features, save_model_fn, attack_hyperparams, model_infos)
 
-            print("--------------------------------")
-            print("FINISHED")
+        print("--------------------------------")
+        print("FINISHED")

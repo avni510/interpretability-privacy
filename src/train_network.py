@@ -7,21 +7,10 @@ import time
 import os
 import interpretability as interpretability
 
-EPOCHS = 20
 DEVICE = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 criterion = nn.CrossEntropyLoss()
 # can add the path inside Summary Writer
 writer = SummaryWriter()
-LR = .001
-LR_DECAY= 1e-7
-
-ATTACK_LR = .001
-ATTACK_LR_DECAY= 1e-7
-ATTACK_EPOCHS = 10
-
-ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-EXPERIMENT_DIR = ROOT_DIR + '/experiments/adult/'
-MODEL_PATH = ROOT_DIR + '/saved_models'
 
 def get_num_correct(output, labels):
     output = output.cpu().detach()
@@ -79,19 +68,24 @@ def train(
         model,
         train_loader,
         idx,
-        dataset_length,
+        model_hyperparams,
         log_tensorboard=False
         ):
-    train_losses = []
-    train_accuracies = []
     model.to(DEVICE)
+    dataset_length = len(train_loader.dataset)
+    lr = model_hyperparams['lr']
+    lr_decay = model_hyperparams['lr_decay']
+    epochs = model_hyperparams['epochs']
+
     optimizer = torch.optim.Adagrad(
             model.parameters(),
-            lr=LR,
-            lr_decay=LR_DECAY
+            lr=lr,
+            lr_decay=lr_decay
            )
 
-    for epoch in range(EPOCHS):
+    train_losses = []
+    train_accuracies = []
+    for epoch in range(epochs):
         model.train()
         ts = time.time()
         losses, total_correct = train_epoch(epoch, model, train_loader, optimizer, log_tensorboard)
@@ -117,18 +111,23 @@ def train_attack_model(
         model,
         train_loader,
         dataset_length,
+        attack_hyperparams,
         log_tensorboard=False
         ):
-    train_losses = []
-    train_accuracies = []
     model.to(DEVICE)
+    lr = attack_hyperparams['lr']
+    lr_decay = attack_hyperparams['lr_decay']
+    epochs = attack_hyperparams['epochs']
+
     optimizer = torch.optim.Adagrad(
             model.parameters(),
-            lr=ATTACK_LR,
-            lr_decay=ATTACK_LR_DECAY
+            lr=lr,
+            lr_decay=lr_decay
            )
 
-    for epoch in range(ATTACK_EPOCHS):
+    train_losses = []
+    train_accuracies = []
+    for epoch in range(epochs):
         model.train()
         ts = time.time()
         losses, total_correct = train_epoch(epoch, model, train_loader, optimizer, log_tensorboard)
@@ -137,11 +136,11 @@ def train_attack_model(
         average_loss = np.mean(np.array(losses))
         accuracy = total_correct/dataset_length
 
-        # if log_tensorboard:
-        #     writer.add_scalar("Attack Loss/train", average_loss, epoch)
-        #     writer.add_scalar("Attack Correct", total_correct, epoch)
-        #     writer.add_scalar("Attack Accuracy", accuracy, epoch)
-        #
+        if log_tensorboard:
+            writer.add_scalar("Attack Loss/train", average_loss, epoch)
+            writer.add_scalar("Attack Correct", total_correct, epoch)
+            writer.add_scalar("Attack Accuracy", accuracy, epoch)
+
         train_losses.append(average_loss)
         train_accuracies.append(accuracy)
 
@@ -150,13 +149,14 @@ def train_attack_model(
 
     return model, train_losses, train_accuracies
 
-def test(model, model_params, idx, test_loader, dataset_length):
+def test(model, model_params, idx, test_loader):
     # load saved model
     model.load_state_dict(model_params)
     model.eval()
-    test_losses = []
+    dataset_length = len(test_loader.dataset)
     model.to(DEVICE)
 
+    test_losses = []
     with torch.no_grad():
         total_correct = 0
         for iter, (inputs, labels) in enumerate(test_loader):
@@ -199,6 +199,7 @@ def get_attributions(model, model_params, idx, loader):
 
             # is the attribution for the true class or predicted class?
             # The paper claims it does an explanation for a point of interest (y bar)
+
             attr = list(map(lambda input_pred:
                 interpretability.smooth_grad(model, input_pred[0], input_pred[1].item()),
                 inputs_preds))
