@@ -1,0 +1,14 @@
+subsample_size: 2500
+sets: 4
+experiment_dir: "/experiments/adult"
+num_runs: 1
+base_hyperparams:
+  batch_size: 8
+  epochs: 20
+  lr: .001
+  lr_decay: 1.0e-7
+attack_hyperparams:
+  batch_size: 16
+  epochs: 10
+  lr: .001
+  lr_decay: 1.0e-7
